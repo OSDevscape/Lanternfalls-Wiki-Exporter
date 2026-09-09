@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#1a120a">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <title>Lanternfalls Lore Exporter</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --black: #0f0f0f;
+            --deep: #1a120a;
+            --brown: #694d23;
+            --gold: #e6a519;
+            --yellow: #ffcf3f;
+            --text: #f5e8ba;
+            --muted: #d0bd97;
+            --danger: #7b2d23;
+            --selected: #5a451f;
+            --touch: 44px
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            background: radial-gradient(circle at top, #5a421f, #2d1f12 32rem, #0f0f0f 100%);
+            color: var(--text);
+            font: 15px/1.45 Georgia, serif
+        }
+
+        button,
+        input,
+        textarea,
+        select,
+        label {
+            font: 14px/1.35 system-ui, sans-serif
+        }
+
+        button,
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+            padding: 8px 12px;
+            color: #f7e7a8;
+            background: linear-gradient(#765728, #4e3518 55%, #33220f);
+            border: 2px solid #1c1309;
+            border-radius: 5px;
+            box-shadow: inset 0 1px rgba(255, 231, 155, .34), inset 0 -2px rgba(0, 0, 0, .42), 0 1px #ad8846;
+            cursor: pointer;
+            text-decoration: none
+        }
+
+        button:hover:not(:disabled),
+        .file-label:hover {
+            border-color: var(--gold);
+            color: #fff3bd
+        }
+
+        button:disabled {
+            opacity: .45;
+            cursor: not-allowed
+        }
+
+        .primary,
+        .file-label.primary {
+            color: #271803;
+            background: linear-gradient(#ffe77c, #e6a519 54%, #ad6811);
+            border-color: #2a1906
+        }
+
+        .warning {
+            color: #ffe4cf;
+            background: linear-gradient(#86392c, #551e18 55%, #30100e)
+        }
+
+        .app {
+            min-height: 100dvh;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto
+        }
+
+        header {
+            padding: 15px 20px;
+            background: linear-gradient(#4b3820, #1c130a);
+            border-bottom: 2px solid #8e6a31
+        }
+
+        h1 {
+            margin: 0;
+            color: var(--yellow);
+            font-size: 22px;
+            text-shadow: 2px 2px #2b1706
+        }
+
+        header p {
+            margin: 5px 0 0;
+            color: #e3cd9c;
+            font: 13px system-ui
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 20px;
+            background: linear-gradient(#4a4032, #201e1b);
+            border-bottom: 2px solid #6e5930
+        }
+
+        .spacer {
+            flex: 1
+        }
+
+        .toolbar input[type=search] {
+            width: min(320px, 100%)
+        }
+
+        .mobile-only {
+            display: none
+        }
+
+        .workspace {
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(275px, 32%) minmax(0, 1fr)
+        }
+
+        aside {
+            overflow: auto;
+            padding: 12px;
+            background: linear-gradient(90deg, #382d1a, #20180e);
+            border-right: 2px solid #8e6a31
+        }
+
+        main {
+            overflow: auto;
+            padding: 24px
+        }
+
+        .tree-meta {
+            margin: 0 0 10px;
+            color: #d9c18f;
+            font: 12px system-ui
+        }
+
+        .tree-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            min-height: 48px;
+            padding: 7px 10px;
+            color: var(--text);
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px
+        }
+
+        .tree-row:hover {
+            background: #695122
+        }
+
+        .tree-row.selected {
+            background: #7a5b24;
+            border-color: var(--yellow)
+        }
+
+        .tree-row .twisty {
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 32px;
+            align-self: stretch;
+            margin: -7px 0 -7px -10px;
+            cursor: pointer;
+            border-right: 1px solid rgba(230, 165, 25, .22);
+            font-size: 17px;
+        }
+
+        .tree-row .twisty:hover {
+            background: rgba(230, 165, 25, .16);
+        }
+
+        .tree-row .name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .twisty {
+            width: 20px;
+            color: #e5c778
+        }
+
+        .name {
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .folder .name {
+            color: #ffe58b;
+            font-weight: 700
+        }
+
+        .tree-children {
+            margin-left: 17px;
+            padding-left: 4px;
+            border-left: 1px dashed #98763c
+        }
+
+        .panel {
+            max-width: 1000px;
+            padding: 24px;
+            background: linear-gradient(135deg, #4a3821, #2d2114);
+            border: 3px solid #211508;
+            outline: 1px solid #c39742;
+            box-shadow: inset 0 0 0 2px rgba(255, 226, 139, .12), 0 5px #080503
+        }
+
+        .panel h2 {
+            margin: 0 0 10px;
+            color: var(--yellow);
+            text-shadow: 2px 2px #2a1708
+        }
+
+        .field,
+        .section {
+            display: grid;
+            gap: 6px;
+            margin: 16px 0
+        }
+
+        label,
+        .section-title {
+            color: #f2d879;
+            font: 700 12px system-ui;
+            letter-spacing: .03em
+        }
+
+        input:not([type=file]),
+        textarea,
+        select {
+            width: 100%;
+            min-height: 42px;
+            padding: 9px 10px;
+            color: #2a1b0c;
+            background: #e2dbc8;
+            border: 3px solid #382813;
+            outline: 1px solid #ba9250;
+            border-radius: 3px
+        }
+
+        textarea {
+            min-height: 260px;
+            font: 13px/1.5 ui-monospace, monospace
+        }
+
+        .small {
+            min-height: 110px
+        }
+
+        .picker {
+            padding: 14px;
+            background: linear-gradient(#4d3a22, #2e2113);
+            border: 2px solid #281a0b;
+            outline: 1px solid #a67b38
+        }
+
+        .native-file {
+            display: none
+        }
+
+        .hint {
+            color: #dbc99e
+        }
+
+        .notice {
+            padding: 12px;
+            color: #372304;
+            background: linear-gradient(#f1d681, #cda84d);
+            border: 3px solid #38240b;
+            outline: 1px solid #f9e49a
+        }
+
+        .actions {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            margin-top: 20px
+        }
+
+        .right {
+            margin-left: auto
+        }
+
+        .list {
+            display: grid;
+            gap: 8px
+        }
+
+        .entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: linear-gradient(#4d3a22, #2e2113);
+            border: 2px solid #281a0b;
+            outline: 1px solid #a67b38;
+            font-family: system-ui
+        }
+
+        .entry span {
+            overflow-wrap: anywhere
+        }
+
+        .entry small {
+            color: #dfc98f
+        }
+
+        .preview {
+            display: block;
+            max-width: 240px;
+            max-height: 140px;
+            margin-top: 8px;
+            border: 3px solid #2b1b09
+        }
+
+        .tagline {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        .tag {
+            padding: 5px 8px;
+            background: #f1d577;
+            color: #38230b;
+            border: 1px solid #855d1f;
+            border-radius: 999px;
+            font: 700 12px system-ui
+        }
+
+        footer {
+            padding: 9px 20px;
+            color: #e0c991;
+            background: linear-gradient(#342617, #1d140b);
+            border-top: 2px solid #84622e;
+            font: 12px system-ui
+        }
+
+        .ok {
+            color: #ffe67c
+        }
+
+        .error {
+            color: #ffc2a1
+        }
+
+        dialog {
+            width: min(680px, calc(100% - 32px));
+            max-height: 80dvh;
+            overflow: auto;
+            padding: 20px;
+            color: var(--text);
+            background: linear-gradient(#4c3920, #2b1f12);
+            border: 3px solid #1e1308;
+            outline: 1px solid #c49743
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, .72)
+        }
+
+        dialog h3 {
+            color: var(--yellow);
+            margin-top: 0
+        }
+
+        .mobile-only {
+            display: none
+        }
+
+        @media(max-width:700px) {
+            .mobile-only {
+                display: inline-flex
+            }
+
+            .desktop-extra {
+                display: none
+            }
+
+            .workspace {
+                display: block;
+                position: relative
+            }
+
+            .workspace aside,
+            .workspace main {
+                position: absolute;
+                inset: 0;
+                overflow: auto;
+                padding: 12px;
+                border: 0
+            }
+
+            body.editor-open aside {
+                display: none
+            }
+
+            body:not(.editor-open) main {
+                display: none
+            }
+
+            .tree-row {
+                min-height: var(--touch)
+            }
+
+            .toolbar {
+                padding: 9px 12px
+            }
+
+            .toolbar input[type=search] {
+                order: 10;
+                width: 100%
+            }
+
+            .panel {
+                padding: 16px
+            }
+
+            .actions {
+                position: sticky;
+                bottom: -12px;
+                padding: 10px 0;
+                background: linear-gradient(transparent, #1a120a 30%)
+            }
+
+            .right {
+                margin-left: 0
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <header>
+            <h1>Lanternfalls Lore Exporter</h1>
+        </header>
+        <div class="toolbar"><label for="backupPicker" class="file-label primary">Open file system</label><input
+                id="backupPicker" class="native-file" type="file" accept=".json,application/json"><button
+                id="filesButton" class="mobile-only" disabled>Files</button><button id="expandAll" disabled>Expand all</button><button id="collapseAll" disabled>Collapse all</button><button id="newFolder" disabled>New
+                folder</button><button id="newPage" disabled>New page</button><button id="validate"
+                class="desktop-extra" disabled>Validate</button><button id="download" class="primary" disabled>Download
+                website ZIP</button>
+            <div class="spacer"></div><input id="search" type="search" placeholder="Search folders and pages" disabled>
+        </div>
+        <div class="workspace">
+            <aside>
+                <p id="treeMeta" class="tree-meta">No backup loaded.</p>
+                <div id="tree"></div>
+            </aside>
+            <main id="main"></main>
+        </div>
+        <footer><span id="status">Choose a backup JSON file to begin.</span></footer>
+    </div>
+    <dialog id="modal">
+        <h3 id="modalTitle"></h3>
+        <div id="modalBody"></div>
+        <div class="actions"><button id="closeModal" class="primary">Close</button></div>
+    </dialog>
+    <script>
+        const S = { data: null, outer: null, selected: null, expanded: new Set(), dirty: false, legacyImages: new Map(), directImages: new Map(), search: "" }; const E = { backup: document.querySelector('#backupPicker'), tree: document.querySelector('#tree'), meta: document.querySelector('#treeMeta'), main: document.querySelector('#main'), status: document.querySelector('#status'), search: document.querySelector('#search'), newFolder: document.querySelector('#newFolder'), newPage: document.querySelector('#newPage'), download: document.querySelector('#download'), validate: document.querySelector('#validate'), files: document.querySelector('#filesButton'), expandAll: document.querySelector('#expandAll'), collapseAll: document.querySelector('#collapseAll'), modal: document.querySelector('#modal'), modalTitle: document.querySelector('#modalTitle'), modalBody: document.querySelector('#modalBody') };
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const formatCreationDate = v => { let d = new Date(Number(v)); return Number.isNaN(d.getTime()) ? '' : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear() };
+        const parseCreationDate = v => { let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v).trim()); if (!m) throw new Error('Creation date must use DD/MM/YYYY.'); let day = Number(m[1]), month = Number(m[2]), year = Number(m[3]), d = new Date(year, month - 1, day); if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) throw new Error('Creation date is not a valid calendar date.'); return d.getTime() }; const clean = (v, f = 'Untitled') => { let x = String(v ?? '').replace(/[\\/:*?"<>|\0-\x1f]/g, '-').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, ''); return (x || f).slice(0, 140) }; const set = (m, k = '') => { E.status.textContent = m; E.status.className = k }; const folders = () => S.data?.categories ?? []; const pages = () => S.data?.subjects ?? []; const getFolder = id => folders().find(x => x.id === Number(id)); const getPage = id => pages().find(x => x.id === Number(id)); const notes = id => (S.data?.subjectNotes ?? []).filter(x => Number(x.subject_id) === Number(id)); const photos = id => (S.data?.subjectPhotos ?? []).filter(x => Number(x.subject_id) === Number(id)); const conn = id => (S.data?.connections ?? []).filter(x => Number(x.subject1_id) === Number(id) || Number(x.subject2_id) === Number(id)); const tagsFor = id => { let map = new Map((S.data?.subjectTags ?? []).map(x => [x.id, x])); return (S.data?.subjectTagsAttachments ?? []).filter(x => Number(x.subject_id) === Number(id)).map(x => map.get(x.tag_id ?? x.subjectTag_id ?? x.subject_tag_id)).filter(Boolean) }; const activeCampaign = () => S.data?.campaigns?.find(x => x.active)?.id ?? S.data?.campaigns?.[0]?.id ?? -1;
+        function build() { if (!S.data) return []; let map = new Map(), roots = []; folders().forEach(x => map.set(x.id, { type: 'folder', source: x, children: [] })); map.forEach(n => { let p = n.source.parentCategory_id; if (p === -1 || !map.has(p) || p === n.source.id) roots.push(n); else map.get(p).children.push(n) }); pages().forEach(x => { let n = { type: 'page', source: x, children: [] }, p = map.get(x.category_id); p ? p.children.push(n) : roots.push(n) }); let sort = xs => { xs.sort((a, b) => Number(b.source.orderPriority ?? 0) - Number(a.source.orderPriority ?? 0) || (a.source.name || '').localeCompare(b.source.name || '', undefined, { numeric: true })); xs.forEach(x => x.type === 'folder' && sort(x.children)) }; sort(roots); return roots } function renderTree() { E.tree.innerHTML = ''; if (!S.data) return; E.meta.textContent = `${folders().length} folders · ${pages().length} pages${S.dirty ? ' · unsaved edits' : ''}`; let q = S.search.toLowerCase(); function has(n) { return !q || (`${n.source.name ?? ''}\n${n.source.description ?? ''}\n${n.source.fullDescription ?? ''}`).toLowerCase().includes(q) || (n.children || []).some(has) } function draw(n, d) { if (!has(n)) return null; let folder = n.type === 'folder', open = q || S.expanded.has(n.source.id), row = document.createElement('button'), wrap = document.createElement('div'); row.className = `tree-row ${n.type}${S.selected?.type === n.type && S.selected?.id === n.source.id ? ' selected' : ''}`; row.style.paddingLeft = `${6 + d * 16}px`; row.innerHTML = `<span class="twisty">${folder ? (n.children.length ? (open ? '▾' : '▸') : '·') : ''}</span><span>${folder ? '📁' : '🌐'}</span><span class="name">${esc(n.source.name || 'Untitled')}</span>`; row.onclick = e => { if (folder && e.target.closest('.twisty') && n.children.length && !q) { S.expanded.has(n.source.id) ? S.expanded.delete(n.source.id) : S.expanded.add(n.source.id); renderTree() } else { S.selected = { type: n.type, id: n.source.id }; if (innerWidth < 701) document.body.classList.add('editor-open'); render() } }; wrap.append(row); if (folder && open) { let kids = document.createElement('div'); kids.className = 'tree-children'; n.children.forEach(c => { let v = draw(c, d + 1); if (v) kids.append(v) }); if (kids.childElementCount) wrap.append(kids) } return wrap } build().forEach(n => { let v = draw(n, 0); if (v) E.tree.append(v) }) }
+        function mark(m) { S.dirty = true; set(m, 'ok') } function optionList(selected, exclude = new Set()) { return `<option value="-1">— Root level —</option>` + folders().filter(x => !exclude.has(x.id)).map(x => `<option value="${x.id}" ${Number(selected) === x.id ? 'selected' : ''}>${esc(x.name || 'Untitled folder')}</option>`).join('') } function descendants(id) { let out = new Set([Number(id)]), again = true; while (again) { again = false; folders().forEach(x => { if (out.has(x.parentCategory_id) && !out.has(x.id)) { out.add(x.id); again = true } }) } return out } function nextId() { return Math.max(0, ...folders().map(x => x.id || 0), ...pages().map(x => x.id || 0)) + 1 }
+        function welcome() { E.main.innerHTML = `<section class="panel"><h2>Open your Archive backup</h2><p>Use the styled <b>Open file system</b> button in the top bar.</p><div class="notice"><p>After loading, select a page to edit content, images, notes, tags, connections, and advanced fields.</p></div></section>` } function folderEditor(x) { E.main.innerHTML = `<section class="panel"><h2>Folder</h2><div class="field"><label>Name</label><input id="fName" value="${esc(x.name ?? '')}"></div><div class="field"><label>Parent folder</label><select id="fParent">${optionList(x.parentCategory_id, descendants(x.id))}</select></div><div class="field"><label>Order priority</label><input id="fOrder" type="number" value="${Number(x.orderPriority ?? 0)}"></div><div class="field"><label>Description</label><textarea id="fDesc" class="small">${esc(x.description ?? '')}</textarea></div><div class="actions"><button id="saveF" class="primary">Save folder</button><button id="addChild">Add page here</button><button id="deleteF" class="warning right">Delete folder</button></div></section>`; document.querySelector('#saveF').onclick = () => { x.name = document.querySelector('#fName').value.trim() || 'Untitled Folder'; x.parentCategory_id = Number(document.querySelector('#fParent').value); x.orderPriority = Number(document.querySelector('#fOrder').value || 0); x.description = document.querySelector('#fDesc').value; mark('Saved folder.'); render() }; document.querySelector('#addChild').onclick = () => newPage(x.id); document.querySelector('#deleteF').onclick = () => { if (confirm(`Delete ${x.name}? Direct contents will move to its parent.`)) { folders().forEach(y => { if (y.parentCategory_id === x.id) y.parentCategory_id = x.parentCategory_id }); pages().forEach(y => { if (y.category_id === x.id) y.category_id = x.parentCategory_id }); S.data.categories = folders().filter(y => y.id !== x.id); S.selected = null; mark('Deleted folder.'); render() } } }
+        function advancedFields(x) { let known = ['id', 'name', 'category_id', 'creationDate', 'orderPriority', 'description', 'fullDescription', 'descriptionColorResourceName', 'iconColorResourceName', 'iconType', 'icon_id', 'nameColorResourceName']; let obj = {}; Object.keys(x).filter(k => !known.includes(k)).forEach(k => obj[k] = x[k]); return JSON.stringify(obj, null, 2) } function pageEditor(x) { let legacy = photos(x.id), direct = S.directImages.get(x.id) ?? [], nt = notes(x.id), tg = tagsFor(x.id), cs = conn(x.id); E.main.innerHTML = `<section class="panel"><h2>HTML Page</h2><div class="section"><span class="section-title">Identity</span><div class="field"><label>ID</label><input value="${x.id}" disabled></div><div class="field"><label>Name</label><input id="pName" value="${esc(x.name ?? '')}"></div><div class="field"><label>Folder</label><select id="pFolder">${optionList(x.category_id)}</select></div><div class="field"><label>Creation date</label><input id="pDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" pattern="\d{2}/\d{2}/\d{4}" value="${formatCreationDate(x.creationDate ?? Date.now())}"></div><div class="field"><label>Order priority</label><input id="pOrder" type="number" value="${Number(x.orderPriority ?? 0)}"></div></div><div class="section"><span class="section-title">Content</span><div class="field"><label>Short description</label><input id="pDesc" value="${esc(x.description ?? '')}"></div><div class="field"><label>Full description</label><textarea id="pBody">${esc(x.fullDescription ?? '')}</textarea></div></div><div class="section"><span class="section-title">Images</span><div class="picker"><span class="section-title">Add images directly to this page</span><label for="pageImages" class="file-label">Open image file system</label><input id="pageImages" class="native-file" type="file" accept="image/*" multiple><small>Direct images export in this page folder’s <code>images/</code> directory.</small></div><div class="list">${legacy.map((p, i) => `<div class="entry"><span>🖼️ ${esc(p.imageName || 'Unnamed legacy image')}<br><small>Legacy backup image · ${S.legacyImages.has(p.imageName) ? 'file selected' : 'no file selected'}</small></span><button class="removeLegacy warning" data-index="${i}">Remove legacy image</button></div>`).join('')}${direct.map((p, i) => `<div class="entry"><span>🖼️ ${esc(p.name)}<br><small>Added directly to this page</small><img class="preview" src="${URL.createObjectURL(p.file)}"></span><button class="removeDirect warning" data-index="${i}">Remove</button></div>`).join('') || '<p class="hint">No images attached.</p>'}</div></div><div class="section"><span class="section-title">Attached notes</span><div class="list">${nt.map(n => `<div class="entry"><span>📝 ${esc(n.name || 'Untitled note')}<br><small>Note ID ${n.id}</small></span><button class="removeNote warning" data-id="${n.id}">Remove</button></div>`).join('')}</div><div class="field"><label>New attached note</label><textarea id="newNote" class="small" placeholder="Write a note, then save page"></textarea></div></div><div class="section"><span class="section-title">Tags</span><div class="tagline">${tg.map(t => `<span class="tag">${esc(t.name)} <button class="removeTag" data-id="${t.id}">×</button></span>`).join('') || '<span class="hint">No tags attached.</span>'}</div><div class="field"><label>Add existing tag</label><select id="addTag"><option value="">— Select tag —</option>${(S.data.subjectTags ?? []).filter(t => !tg.some(v => v.id === t.id)).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div></div><div class="section"><span class="section-title">Connections</span><div class="list">${cs.map(c => { let other = Number(c.subject1_id) === x.id ? getPage(c.subject2_id) : getPage(c.subject1_id), text = Number(c.subject1_id) === x.id ? c.comment_1 : c.comment_2; return `<div class="entry"><span>🔗 ${esc(other?.name || 'Missing page')}<br><small>${esc(text || 'No connection note')}</small></span><button class="removeConnection warning" data-id="${c.id}">Remove</button></div>` }).join('') || '<span class="hint">No connections.</span>'}</div><div class="field"><label>Connect to another page</label><select id="addConnection"><option value="">— Select page —</option>${pages().filter(p => p.id !== x.id && !cs.some(c => c.subject1_id === p.id || c.subject2_id === p.id)).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>Connection note</label><input id="connectionComment" placeholder="Example: Potion merchant"></div></div><div class="section"><span class="section-title">Advanced / unknown fields</span><div class="field"><label>Preserved custom fields</label><textarea id="advanced" class="small">${esc(advancedFields(x))}</textarea></div><p class="hint">Icon and color resource fields are retained silently from the original record but intentionally hidden from this editor.</p></div><div class="actions"><button id="saveP" class="primary">Save page</button><button id="deleteP" class="warning right">Delete page</button></div></section>`; document.querySelector('#pageImages').onchange = e => { let a = S.directImages.get(x.id) ?? [];[...e.target.files].forEach(f => { if (f.type.startsWith('image/')) a.push({ file: f, name: f.name }) }); S.directImages.set(x.id, a); mark('Added direct page images.'); render() }; document.querySelectorAll('.removeLegacy').forEach(b => b.onclick = () => { let p = photos(x.id)[Number(b.dataset.index)]; S.data.subjectPhotos = S.data.subjectPhotos.filter(v => v !== p); if (!S.data.subjectPhotos.some(v => v.imageName === p.imageName)) S.legacyImages.delete(p.imageName); mark('Removed legacy image record.'); render() }); document.querySelectorAll('.removeDirect').forEach(b => b.onclick = () => { let a = S.directImages.get(x.id) ?? []; a.splice(Number(b.dataset.index), 1); S.directImages.set(x.id, a); mark('Removed direct page image.'); render() }); document.querySelectorAll('.removeNote').forEach(b => b.onclick = () => { S.data.subjectNotes = S.data.subjectNotes.filter(n => n.id !== Number(b.dataset.id)); mark('Removed attached note.'); render() }); document.querySelectorAll('.removeTag').forEach(b => b.onclick = () => { S.data.subjectTagsAttachments = S.data.subjectTagsAttachments.filter(a => !(Number(a.subject_id) === x.id && Number(a.tag_id ?? a.subjectTag_id ?? a.subject_tag_id) === Number(b.dataset.id))); mark('Removed tag.'); render() }); document.querySelectorAll('.removeConnection').forEach(b => b.onclick = () => { S.data.connections = S.data.connections.filter(c => c.id !== Number(b.dataset.id)); mark('Removed connection.'); render() }); document.querySelector('#saveP').onclick = () => { try { let extra = JSON.parse(document.querySelector('#advanced').value || '{}'); Object.keys(x).forEach(k => { if (!['id', 'name', 'category_id', 'creationDate', 'orderPriority', 'description', 'fullDescription', 'descriptionColorResourceName', 'iconColorResourceName', 'iconType', 'icon_id', 'nameColorResourceName'].includes(k)) delete x[k] }); Object.assign(x, extra); x.name = document.querySelector('#pName').value.trim() || 'Untitled Page'; x.category_id = Number(document.querySelector('#pFolder').value); x.creationDate = parseCreationDate(document.querySelector('#pDate').value); x.orderPriority = Number(document.querySelector('#pOrder').value || 0); x.description = document.querySelector('#pDesc').value; x.fullDescription = document.querySelector('#pBody').value; let t = document.querySelector('#addTag').value; if (t) { S.data.subjectTagsAttachments ??= []; S.data.subjectTagsAttachments.push({ id: nextAttachmentId(), subject_id: x.id, tag_id: Number(t) }) } let note = document.querySelector('#newNote').value.trim(); if (note) { S.data.subjectNotes ??= []; S.data.subjectNotes.push({ id: nextNoteId(), subject_id: x.id, name: note, creationDate: Date.now(), orderPriority: 99999 }) } let target = document.querySelector('#addConnection').value; if (target) { S.data.connections ??= []; let comment = document.querySelector('#connectionComment').value; S.data.connections.push({ id: nextConnectionId(), subject1_id: x.id, subject2_id: Number(target), comment_1: comment, comment_2: comment }) } mark('Saved complete page record.'); render() } catch (err) { alert('Advanced fields must be valid JSON.\n\n' + err.message) } }; document.querySelector('#deleteP').onclick = () => { if (confirm(`Delete ${x.name}?`)) { S.data.subjects = pages().filter(p => p.id !== x.id); S.data.subjectPhotos = (S.data.subjectPhotos ?? []).filter(p => p.subject_id !== x.id); S.data.subjectNotes = (S.data.subjectNotes ?? []).filter(n => n.subject_id !== x.id); S.data.subjectTagsAttachments = (S.data.subjectTagsAttachments ?? []).filter(a => a.subject_id !== x.id); S.data.connections = (S.data.connections ?? []).filter(c => c.subject1_id !== x.id && c.subject2_id !== x.id); S.directImages.delete(x.id); S.selected = null; mark('Deleted page and its attachments.'); render() } } }
+        function nextAttachmentId() { return Math.max(0, ...(S.data.subjectTagsAttachments ?? []).map(x => x.id || 0)) + 1 } function nextNoteId() { return Math.max(0, ...(S.data.subjectNotes ?? []).map(x => x.id || 0)) + 1 } function nextConnectionId() { return Math.max(0, ...(S.data.connections ?? []).map(x => x.id || 0)) + 1 } function render() { [E.newFolder, E.newPage, E.validate, E.download, E.search, E.files, E.expandAll, E.collapseAll].forEach(x => x.disabled = !S.data); renderTree(); if (!S.data) return welcome(); if (!S.selected) { E.main.innerHTML = '<section class="panel"><h2>Select a page</h2><p>Choose a page to edit its content, images, notes, tags, connections, and advanced fields.</p></section>'; return } let x = S.selected.type === 'folder' ? getFolder(S.selected.id) : getPage(S.selected.id); S.selected.type === 'folder' ? folderEditor(x) : pageEditor(x) } function newPage(parent) { let p = parent ?? getFolder(S.selected?.id)?.id ?? folders()[0]?.id; if (!p) return alert('Create a folder first.'); let x = { id: nextId(), category_id: p, creationDate: Date.now(), orderPriority: 99999, description: '', descriptionColorResourceName: 'paletteColor_default', iconColorResourceName: 'paletteColor_default', iconType: 0, icon_id: -1, name: 'Untitled Page', nameColorResourceName: 'paletteColor_default', fullDescription: '' }; S.data.subjects.push(x); S.selected = { type: 'page', id: x.id }; mark('Created page.'); render() }
+        function validateData() { let issues = [], ids = new Set(folders().map(x => x.id)); folders().forEach(x => { if (x.parentCategory_id !== -1 && !ids.has(x.parentCategory_id)) issues.push(`Missing parent for ${x.name}`) }); pages().forEach(x => { if (!ids.has(x.category_id)) issues.push(`Missing category for ${x.name}`) }); return issues } function showValidation() { let issues = validateData(); E.modalTitle.textContent = 'Export validation'; E.modalBody.innerHTML = issues.length ? `<p class="error">${issues.length} issue(s)</p><ul>${issues.map(esc).map(x => `<li>${x}</li>`).join('')}</ul>` : '<p class="ok">No broken folder or page references found.</p>'; E.modal.showModal() }
+        class Zip { constructor() { this.parts = []; this.entries = []; this.offset = 0; this.encoder = new TextEncoder() } u16(v) { return new Uint8Array([v & 255, v >>> 8 & 255]) } u32(v) { return new Uint8Array([v & 255, v >>> 8 & 255, v >>> 16 & 255, v >>> 24 & 255]) } cat(ps) { let n = ps.reduce((a, p) => a + p.length, 0), o = new Uint8Array(n), i = 0; for (let p of ps) { o.set(p, i); i += p.length } return o } crc(b) { let c = 4294967295; for (let x of b) { c ^= x; for (let i = 0; i < 8; i++)c = c >>> 1 ^ ((c & 1) ? 3988292384 : 0) } return (c ^ 4294967295) >>> 0 } async add(n, c) { let nb = this.encoder.encode(n), b = c instanceof Uint8Array ? c : new Uint8Array(await c.arrayBuffer()), crc = this.crc(b), l = this.cat([this.u32(67324752), this.u16(20), this.u16(2048), this.u16(0), this.u16(0), this.u16(0), this.u32(crc), this.u32(b.length), this.u32(b.length), this.u16(nb.length), this.u16(0), nb, b]); this.parts.push(l); this.entries.push({ nb, crc, size: b.length, offset: this.offset }); this.offset += l.length } build() { let a = [], s = 0; for (let e of this.entries) { let p = this.cat([this.u32(33639248), this.u16(20), this.u16(20), this.u16(2048), this.u16(0), this.u16(0), this.u16(0), this.u32(e.crc), this.u32(e.size), this.u32(e.size), this.u16(e.nb.length), this.u16(0), this.u16(0), this.u16(0), this.u16(0), this.u32(0), this.u32(e.offset), e.nb]); a.push(p); s += p.length } return new Blob([...this.parts, ...a, this.cat([this.u32(101010256), this.u16(0), this.u16(0), this.u16(this.entries.length), this.u16(this.entries.length), this.u32(s), this.u32(this.offset), this.u16(0)])], { type: 'application/zip' }) } }
+        function css() { return `body{margin:auto;max-width:1050px;padding:28px;background:#171009;color:#211a12;font:16px Georgia}a{color:#603b0b}.head{padding:18px;background:#3c2a14;color:#ffcf3f;border:3px solid #150d05}.paper{padding:24px;background:#e2dbc8;border:4px solid #2a1a08}.box{margin:14px 0;padding:12px;background:#f0e3be;border:1px solid #a67b38}.tag{display:inline-block;margin:3px;padding:4px 8px;background:#f1d577;border:1px solid #855d1f;border-radius:999px}.imgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.imgs img{width:100%;border:3px solid #38220b}` }
+        function rel(from, to) { let a = from.split('/').filter(Boolean), b = to.split('/').filter(Boolean); a.pop(); let i = 0; while (a[i] === b[i]) i++; return '../'.repeat(a.length - i) + b.slice(i).join('/') } async function exportSite() { let issues = validateData(); if (issues.length && !confirm('Export despite validation issues?')) return; E.download.disabled = true; try { let root = clean(S.data.campaigns?.find(x => x.active)?.name || 'Archive Website'), zip = new Zip(), paths = new Map(), used = new Set(); function addFolder(n, parent) { let base = clean(n.source.name, 'Folder'), p = `${parent}/${base}`, i = 2; while (used.has(p)) p = `${parent}/${base} [${i++}]`; used.add(p); paths.set(n.source.id, p); n.children.filter(x => x.type === 'folder').forEach(x => addFolder(x, p)) } build().filter(x => x.type === 'folder').forEach(x => addFolder(x, root)); let pagePaths = new Map(); for (let p of pages()) { let par = paths.get(p.category_id) || `${root}/_Uncategorized`, base = clean(p.name, 'Page'), out = `${par}/${base}.html`, i = 2; while (used.has(out)) out = `${par}/${base} [${i++}].html`; used.add(out); pagePaths.set(p.id, out) } let imagePath = new Map(); for (let [id, arr] of S.directImages) { let par = paths.get(getPage(id)?.category_id) || `${root}/_Uncategorized`; for (let i = 0; i < arr.length; i++) { let out = `${par}/images/${clean(arr[i].name, 'image')}`; imagePath.set(`${id}:${i}`, out); await zip.add(out, arr[i].file) } } for (let p of pages()) { let pagePath = pagePaths.get(p.id), imgs = (S.directImages.get(p.id) ?? []); let imageHtml = imgs.length ? `<h2>Images</h2><div class="imgs">${imgs.map((x, i) => `<img src="${esc(rel(pagePath, imagePath.get(`${p.id}:${i}`)))}" alt="${esc(x.name)}">`).join('')}</div>` : ''; let ns = notes(p.id), ts = tagsFor(p.id), cs = conn(p.id); let html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.name)}</title><link rel="stylesheet" href="${esc(rel(pagePath, root + '/_assets/archive.css'))}"></head><body><header class="head"><a href="${esc(rel(pagePath, root + '/index.html'))}">Home</a><h1>${esc(p.name)}</h1></header><main class="paper">${p.description ? `<div class="box">${esc(p.description)}</div>` : ''}<div style="white-space:pre-wrap">${esc(p.fullDescription || '')}</div>${imageHtml}${ns.length ? `<h2>Attached Notes</h2>${ns.map(n => `<div class="box">${esc(n.name)}</div>`).join('')}` : ''}${ts.length ? `<h2>Tags</h2>${ts.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}` : ''}${cs.length ? `<h2>Connections</h2>${cs.map(c => { let o = Number(c.subject1_id) === p.id ? getPage(c.subject2_id) : getPage(c.subject1_id); return o ? `<div class="box"><a href="${esc(rel(pagePath, pagePaths.get(o.id)))}">${esc(o.name)}</a></div>` : '' }).join('')}` : ''}</main></body></html>`; await zip.add(pagePath, new Blob([html], { type: 'text/html' })) } let links = pages().map(p => `<li><a href="${esc(rel(root + '/index.html', pagePaths.get(p.id)))}">${esc(p.name)}</a></li>`).join(''); await zip.add(`${root}/index.html`, new Blob([`<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_assets/archive.css"><title>${esc(root)}</title></head><body><header class="head"><h1>${esc(root)}</h1></header><main class="paper"><ul>${links}</ul></main></body></html>`], { type: 'text/html' })); await zip.add(`${root}/_assets/archive.css`, new Blob([css()], { type: 'text/css' })); let blob = zip.build(), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `${root}.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 3000); S.dirty = false; set('Website ZIP downloaded.', 'ok') } catch (e) { console.error(e); set('Export error: ' + e.message, 'error') } finally { E.download.disabled = false } }
+        async function load(f) { try { let outer = JSON.parse(await f.text()), data = JSON.parse(outer.campaignsData); if (!Array.isArray(data.categories) || !Array.isArray(data.subjects)) throw Error('Missing categories or subjects arrays'); S.outer = outer; S.data = data; S.selected = null; S.expanded = new Set(folders().filter(x => x.parentCategory_id === -1).map(x => x.id)); set(`Loaded ${f.name}.`, 'ok'); render() } catch (e) { set('Could not load: ' + e.message, 'error'); alert(e.message) } } E.backup.onchange = e => e.target.files[0] && load(e.target.files[0]); E.newFolder.onclick = () => { let x = { id: nextId(), campaign_id: activeCampaign(), categoryType: 0, parentCategory_id: -1, orderPriority: 99999, name: 'New Folder', description: '', iconType: 0, icon_id: -1, iconColorResourceName: 'paletteColor_default', nameColorResourceName: 'paletteColor_default', descriptionColorResourceName: 'paletteColor_default' }; S.data.categories.push(x); S.selected = { type: 'folder', id: x.id }; mark('Created folder.'); render() }; E.newPage.onclick = () => newPage(); E.search.oninput = e => { S.search = e.target.value; renderTree() }; E.validate.onclick = showValidation; E.download.onclick = exportSite; E.files.onclick = () => { document.body.classList.remove('editor-open'); renderTree() }; E.expandAll.onclick = () => { if (!S.data) return; S.expanded = new Set(folders().map(x => x.id)); renderTree() }; E.collapseAll.onclick = () => { if (!S.data) return; S.expanded.clear(); renderTree() }; document.querySelector('#closeModal').onclick = () => E.modal.close(); render();
+        // PWA bootstrap: this app needs to be served over HTTPS or localhost for installation and offline caching.
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker registration failed:', error)));
+        }
+
+    </script>
+</body>
+
+</html>
