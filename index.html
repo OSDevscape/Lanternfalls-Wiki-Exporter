@@ -118,7 +118,7 @@
         }
 
         .mobile-only {
-            display: none
+            display: inline-flex;
         }
 
         .workspace {
@@ -367,29 +367,41 @@
             background: #000a
         }
 
-        @media(max-width:700px) {
+        @media (max-width: 800px) {
             .workspace {
-                grid-template-columns: 1fr
+                grid-template-columns: 1fr;
             }
 
             aside {
-                display: none
+                display: none;
             }
 
-            body.editor-open aside {
+            body.files-open aside {
                 display: block;
                 position: fixed;
-                z-index: 2;
-                inset: 0 18% 0 0;
-                box-shadow: 4px 0 18px #000
+                z-index: 100;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                padding: 12px;
+                overflow: auto;
+                background: linear-gradient(90deg, #382d1a, #20180e);
+                border: 0;
+                box-shadow: none;
+            }
+
+            body.files-open main {
+                display: none;
             }
 
             .mobile-only {
-                display: inline-flex
+                display: inline-flex;
             }
 
             main {
-                padding: 14px
+                padding: 14px;
             }
         }
     </style>
@@ -411,7 +423,7 @@
             <div class="spacer"></div><input id="search" type="search" placeholder="Search folders and pages" disabled>
         </div>
         <div class="workspace">
-            <aside>
+            <aside id="fileTreePanel">
                 <p id="treeMeta" class="tree-meta">No backup loaded.</p>
                 <div id="tree"></div>
             </aside>
@@ -428,7 +440,7 @@
         const S = { data: null, outer: null, selected: null, expanded: new Set(), dirty: false, legacyImages: new Map(), directImages: new Map(), search: "" }; const E = { backup: document.querySelector('#backupPicker'), tree: document.querySelector('#tree'), meta: document.querySelector('#treeMeta'), main: document.querySelector('#main'), status: document.querySelector('#status'), search: document.querySelector('#search'), newFolder: document.querySelector('#newFolder'), newPage: document.querySelector('#newPage'), download: document.querySelector('#download'), validate: document.querySelector('#validate'), files: document.querySelector('#filesButton'), expandAll: document.querySelector('#expandAll'), collapseAll: document.querySelector('#collapseAll'), modal: document.querySelector('#modal'), modalTitle: document.querySelector('#modalTitle'), modalBody: document.querySelector('#modalBody') };
         const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const formatCreationDate = v => { let d = new Date(Number(v)); return Number.isNaN(d.getTime()) ? '' : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear() }; const parseCreationDate = v => { let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v).trim()); if (!m) throw new Error('Creation date must use DD/MM/YYYY.'); let day = Number(m[1]), month = Number(m[2]), year = Number(m[3]), d = new Date(year, month - 1, day); if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) throw new Error('Creation date is not a valid calendar date.'); return d.getTime() }; const clean = (v, f = 'Untitled') => { let x = String(v ?? '').replace(/[\\/:*?"<>|\0-\x1f]/g, '-').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, ''); return (x || f).slice(0, 140) }; const set = (m, k = '') => { E.status.textContent = m; E.status.className = k }; const folders = () => S.data?.categories ?? []; const pages = () => S.data?.subjects ?? []; const getFolder = id => folders().find(x => x.id === Number(id)); const getPage = id => pages().find(x => x.id === Number(id)); const notes = id => (S.data?.subjectNotes ?? []).filter(x => Number(x.subject_id) === Number(id)); const photos = id => (S.data?.subjectPhotos ?? []).filter(x => Number(x.subject_id) === Number(id)); const conn = id => (S.data?.connections ?? []).filter(x => Number(x.subject1_id) === Number(id) || Number(x.subject2_id) === Number(id)); const tagsFor = id => { let map = new Map((S.data?.subjectTags ?? []).map(x => [x.id, x])); return (S.data?.subjectTagsAttachments ?? []).filter(x => Number(x.subject_id) === Number(id)).map(x => map.get(x.tag_id ?? x.subjectTag_id ?? x.subject_tag_id)).filter(Boolean) }; const activeCampaign = () => S.data?.campaigns?.find(x => x.active)?.id ?? S.data?.campaigns?.[0]?.id ?? -1;
         function build() { if (!S.data) return []; let map = new Map(), roots = []; folders().forEach(x => map.set(x.id, { type: 'folder', source: x, children: [] })); map.forEach(n => { let p = n.source.parentCategory_id; if (p === -1 || !map.has(p) || p === n.source.id) roots.push(n); else map.get(p).children.push(n) }); pages().forEach(x => { let n = { type: 'page', source: x, children: [] }, p = map.get(x.category_id); p ? p.children.push(n) : roots.push(n) }); let sort = xs => { xs.sort((a, b) => Number(b.source.orderPriority ?? 0) - Number(a.source.orderPriority ?? 0) || (a.source.name || '').localeCompare(b.source.name || '', undefined, { numeric: true })); xs.forEach(x => x.type === 'folder' && sort(x.children)) }; sort(roots); return roots }
-        function renderTree() { E.tree.innerHTML = ''; if (!S.data) return; E.meta.textContent = `${folders().length} folders · ${pages().length} pages${S.dirty ? ' · unsaved edits' : ''}`; let q = S.search.toLowerCase(); function has(n) { return !q || (`${n.source.name ?? ''}\n${n.source.description ?? ''}\n${n.source.fullDescription ?? ''}`).toLowerCase().includes(q) || (n.children || []).some(has) } function draw(n, d) { if (!has(n)) return null; let folder = n.type === 'folder', open = q || S.expanded.has(n.source.id), row = document.createElement('button'), wrap = document.createElement('div'); row.className = `tree-row ${n.type}${S.selected?.type === n.type && S.selected?.id === n.source.id ? ' selected' : ''}`; row.style.paddingLeft = `${10 + d * 16}px`; row.innerHTML = `<span class="twisty">${folder ? (n.children.length ? (open ? '▾' : '▸') : '·') : ''}</span><span>${folder ? '📁' : '🌐'}</span><span class="name">${esc(n.source.name || 'Untitled')}</span>`; row.onclick = e => { if (folder && e.target.closest('.twisty') && n.children.length && !q) { S.expanded.has(n.source.id) ? S.expanded.delete(n.source.id) : S.expanded.add(n.source.id); renderTree() } else { S.selected = { type: n.type, id: n.source.id }; if (innerWidth < 701) document.body.classList.add('editor-open'); render() } }; wrap.append(row); if (folder && open) { let kids = document.createElement('div'); kids.className = 'tree-children'; n.children.forEach(c => { let v = draw(c, d + 1); if (v) kids.append(v) }); if (kids.childElementCount) wrap.append(kids) } return wrap } build().forEach(n => { let v = draw(n, 0); if (v) E.tree.append(v) }) }
+        function renderTree() { E.tree.innerHTML = ''; if (!S.data) return; E.meta.textContent = `${folders().length} folders · ${pages().length} pages${S.dirty ? ' · unsaved edits' : ''}`; let q = S.search.toLowerCase(); function has(n) { return !q || (`${n.source.name ?? ''}\n${n.source.description ?? ''}\n${n.source.fullDescription ?? ''}`).toLowerCase().includes(q) || (n.children || []).some(has) } function draw(n, d) { if (!has(n)) return null; let folder = n.type === 'folder', open = q || S.expanded.has(n.source.id), row = document.createElement('button'), wrap = document.createElement('div'); row.className = `tree-row ${n.type}${S.selected?.type === n.type && S.selected?.id === n.source.id ? ' selected' : ''}`; row.style.paddingLeft = `${10 + d * 16}px`; row.innerHTML = `<span class="twisty">${folder ? (n.children.length ? (open ? '▾' : '▸') : '·') : ''}</span><span>${folder ? '📁' : '🌐'}</span><span class="name">${esc(n.source.name || 'Untitled')}</span>`; row.onclick = e => { if (folder && e.target.closest('.twisty') && n.children.length && !q) { S.expanded.has(n.source.id) ? S.expanded.delete(n.source.id) : S.expanded.add(n.source.id); renderTree() } else { S.selected = { type: n.type, id: n.source.id }; if (innerWidth < 801) document.body.classList.remove('editor-open'); render() } }; wrap.append(row); if (folder && open) { let kids = document.createElement('div'); kids.className = 'tree-children'; n.children.forEach(c => { let v = draw(c, d + 1); if (v) kids.append(v) }); if (kids.childElementCount) wrap.append(kids) } return wrap } build().forEach(n => { let v = draw(n, 0); if (v) E.tree.append(v) }) }
         function mark(m) { S.dirty = true; set(m, 'ok') } function optionList(selected, exclude = new Set()) { return `<option value="-1">— Root level —</option>` + folders().filter(x => !exclude.has(x.id)).map(x => `<option value="${x.id}" ${Number(selected) === x.id ? 'selected' : ''}>${esc(x.name || 'Untitled folder')}</option>`).join('') } function descendants(id) { let out = new Set([Number(id)]), again = true; while (again) { again = false; folders().forEach(x => { if (out.has(x.parentCategory_id) && !out.has(x.id)) { out.add(x.id); again = true } }) } return out } function nextId() { return Math.max(0, ...folders().map(x => x.id || 0), ...pages().map(x => x.id || 0)) + 1 }
         function welcome() { E.main.innerHTML = `<section class="panel"><h2>Open your Archive backup</h2><p>Use the styled <b>Open file system</b> button in the top bar.</p><div class="notice"><p>After loading, select a page to edit content, images, notes, tags, connections, and advanced fields.</p></div></section>` }
         function folderEditor(x) { E.main.innerHTML = `<section class="panel"><h2>Folder</h2><div class="field"><label>Name</label><input id="fName" value="${esc(x.name ?? '')}"></div><div class="field"><label>Parent folder</label><select id="fParent">${optionList(x.parentCategory_id, descendants(x.id))}</select></div><div class="field"><label>Order priority</label><input id="fOrder" type="number" value="${Number(x.orderPriority ?? 0)}"></div><div class="field"><label>Description</label><textarea id="fDesc" class="small">${esc(x.description ?? '')}</textarea></div><div class="actions"><button id="saveF" class="primary">Save folder</button><button id="addChild">Add page here</button><button id="deleteF" class="warning right">Delete folder</button></div></section>`; document.querySelector('#saveF').onclick = () => { x.name = document.querySelector('#fName').value.trim() || 'Untitled Folder'; x.parentCategory_id = Number(document.querySelector('#fParent').value); x.orderPriority = Number(document.querySelector('#fOrder').value || 0); x.description = document.querySelector('#fDesc').value; mark('Saved folder.'); render() }; document.querySelector('#addChild').onclick = () => newPage(x.id); document.querySelector('#deleteF').onclick = () => { if (confirm(`Delete ${x.name}? Direct contents will move to its parent.`)) { folders().forEach(y => { if (y.parentCategory_id === x.id) y.parentCategory_id = x.parentCategory_id }); pages().forEach(y => { if (y.category_id === x.id) y.category_id = x.parentCategory_id }); S.data.categories = folders().filter(y => y.id !== x.id); S.selected = null; mark('Deleted folder.'); render() } } }
@@ -574,7 +586,79 @@
                 } function wikiTree(nodes) { return `<ul class="wiki-tree">${nodes.map(n => { if (n.type === 'folder') { let label = esc(n.source.name || 'Untitled folder'), children = n.children?.length ? wikiTree(n.children) : '<ul></ul>'; return `<li class="wiki-folder"><details><summary>📁 ${label}</summary>${children}</details></li>` } let target = pagePaths.get(n.source.id); return `<li class="wiki-page"><a href="${esc(rel(root + '/index.html', target))}">🌐 ${esc(n.source.name || 'Untitled page')}</a></li>` }).join('')}</ul>` } let tree = wikiTree(build()); await zip.add(`${root}/index.html`, new Blob([`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="_assets/archive.css"><title>${esc(root)} Wiki</title></head><body><header class="head"><h1>${esc(root)} Wiki</h1></header><main class="paper"><h2>Files</h2>${tree}</main></body></html>`], { type: 'text/html' })); await zip.add(`${root}/_assets/archive.css`, new Blob([css()], { type: 'text/css' })); let blob = zip.build(), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `${root}.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 3000); S.dirty = false; set('Website ZIP downloaded.', 'ok')
             } catch (e) { console.error(e); set('Export error: ' + e.message, 'error') } finally { E.download.disabled = false }
         }
-        async function load(f) { try { let outer = JSON.parse(await f.text()), data = JSON.parse(outer.campaignsData); if (!Array.isArray(data.categories) || !Array.isArray(data.subjects)) throw Error('Missing categories or subjects arrays'); S.outer = outer; S.data = data; S.selected = null; S.expanded = new Set(folders().filter(x => x.parentCategory_id === -1).map(x => x.id)); set(`Loaded ${f.name}.`, 'ok'); render() } catch (e) { set('Could not load: ' + e.message, 'error'); alert(e.message) } } E.backup.onchange = e => e.target.files[0] && load(e.target.files[0]); E.newFolder.onclick = () => { let x = { id: nextId(), campaign_id: activeCampaign(), categoryType: 0, parentCategory_id: -1, orderPriority: 99999, name: 'New Folder', description: '', iconType: 0, icon_id: -1, iconColorResourceName: 'paletteColor_default', nameColorResourceName: 'paletteColor_default', descriptionColorResourceName: 'paletteColor_default' }; S.data.categories.push(x); S.selected = { type: 'folder', id: x.id }; mark('Created folder.'); render() }; E.newPage.onclick = () => newPage(); E.search.oninput = e => { S.search = e.target.value; renderTree() }; E.validate.onclick = showValidation; E.download.onclick = exportSite; E.files.onclick = () => { document.body.classList.remove('editor-open'); renderTree() }; E.expandAll.onclick = () => { if (!S.data) return; S.expanded = new Set(folders().map(x => x.id)); renderTree() }; E.collapseAll.onclick = () => { if (!S.data) return; S.expanded.clear(); renderTree() }; document.querySelector('#closeModal').onclick = () => E.modal.close(); render(); if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker registration failed:', error))) }
+        async function load(f) { try { let outer = JSON.parse(await f.text()), data = JSON.parse(outer.campaignsData); if (!Array.isArray(data.categories) || !Array.isArray(data.subjects)) throw Error('Missing categories or subjects arrays'); S.outer = outer; S.data = data; S.selected = null; S.expanded = new Set(folders().filter(x => x.parentCategory_id === -1).map(x => x.id)); set(`Loaded ${f.name}.`, 'ok'); render() } catch (e) { set('Could not load: ' + e.message, 'error'); alert(e.message) } } E.backup.onchange = e => e.target.files[0] && load(e.target.files[0]);
+
+        E.newFolder.onclick = () => {
+            let x = {
+                id: nextId(),
+                campaign_id: activeCampaign(),
+                categoryType: 0,
+                parentCategory_id: -1,
+                orderPriority: 99999,
+                name: 'New Folder',
+                description: '',
+                iconType: 0,
+                icon_id: -1,
+                iconColorResourceName: 'paletteColor_default',
+                nameColorResourceName: 'paletteColor_default',
+                descriptionColorResourceName: 'paletteColor_default'
+            };
+
+            S.data.categories.push(x);
+            S.selected = { type: 'folder', id: x.id };
+            mark('Created folder.');
+            render();
+        };
+
+        E.newPage.onclick = () => newPage();
+
+        E.search.oninput = e => {
+            S.search = e.target.value;
+            renderTree();
+        };
+
+        E.validate.onclick = showValidation;
+        E.download.onclick = exportSite;
+
+        /* Mobile Files button: open the file-tree drawer */
+        E.files.onclick = () => {
+            if (!S.data) return;
+
+            document.body.classList.add('files-open');
+            renderTree();
+
+            window.scrollTo({
+                top: 0,
+                behavior: 'instant'
+            });
+        };
+
+        E.expandAll.onclick = () => {
+            if (!S.data) return;
+
+            S.expanded = new Set(folders().map(x => x.id));
+            renderTree();
+        };
+
+        E.collapseAll.onclick = () => {
+            if (!S.data) return;
+
+            S.expanded.clear();
+            renderTree();
+        };
+
+        document.querySelector('#closeModal').onclick = () => E.modal.close();
+
+        render();
+
+        if ('serviceWorker' in navigator &&
+            (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker
+                    .register('./sw.js')
+                    .catch(error => console.warn('Service worker registration failed:', error));
+            });
+        }; E.expandAll.onclick = () => { if (!S.data) return; S.expanded = new Set(folders().map(x => x.id)); renderTree() }; E.collapseAll.onclick = () => { if (!S.data) return; S.expanded.clear(); renderTree() }; document.querySelector('#closeModal').onclick = () => E.modal.close(); render(); if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker registration failed:', error))) }
     </script>
 </body>
 
